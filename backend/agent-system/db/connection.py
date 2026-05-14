@@ -33,7 +33,6 @@ def create_vector_index(table_name:str,conn):
     except Exception as e:
         print(f"Error: {e}")
     conn.commit()
-    conn.close()
     
 
 
