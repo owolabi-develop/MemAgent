@@ -1,7 +1,7 @@
 class StoreManager:
     """Manages all stores (vector stores and SQL tables) with getter methods for easy access."""
     
-    def __init__(self, client, embedding_function, table_names):
+    def __init__(self, client, table_names):
         """
         Initialize all stores.
         
@@ -12,8 +12,7 @@ class StoreManager:
 
         """
         self.client = client
-        self.embedding_function = embedding_function
-        
+     
         # Initialize all vector stores
         self._knowledge_base_vs = self.create_vector_store(
             table_name=table_names['knowledge_base'],
@@ -44,7 +43,13 @@ class StoreManager:
         
         
     def create_vector_store(self,table_name):
+    
         with self.client.cursor() as cur:
+           ## DROP TABLE IF EXISTS 
+            try:
+                cur.execute(f"DROP TABLE IF EXISTS {table_name}")
+            except:
+                pass
             cur.execute(f"""
                         CREATE TABLE {table_name} (
                             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,6 +58,9 @@ class StoreManager:
                             embedding vector(1536)
                              );
                         """)
+        self.client.commit()
+            
+        print(f" Table {table_name} created successfully with indexes")
     def create_tool_log_table(self,table_name: str = "TOOL_LOG_MEMORY"):
         """
         Create a table to store raw tool execution logs per thread.
@@ -60,6 +68,11 @@ class StoreManager:
         """
        
         with self.client.cursor() as cur:
+            try:
+                cur.execute(f"DROP TABLE IF EXISTS {table_name}")
+            except:
+                pass
+            
             cur.execute(f"""
                 CREATE TABLE {table_name} (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -103,7 +116,7 @@ class StoreManager:
         with self.client.cursor() as cur:
             # Drop table if exists
             try:
-                cur.execute(f"DROP TABLE {table_name}")
+                cur.execute(f"DROP TABLE IF EXISTS {table_name}")
             except:
                 pass  # Table doesn't exist
             
