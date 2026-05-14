@@ -1,0 +1,33 @@
+backend/.env
+backend/.venv
+backend/db/__pycache__
+backend/memory/__pycache__
+backend/prompt/__pycache__
+backend/utils/__pycache__
+backend/tools/__pycache__
+frontend/node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
