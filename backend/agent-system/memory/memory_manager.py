@@ -138,6 +138,11 @@ class MemoryManager:
             return
 
         self.add_text_to_vs(self.knowledge_base_vs,[str(text)], [metadata if isinstance(metadata, dict) else {}])
+        
+    def write_toolbox(self,text:str, metadata: dict):
+            """ write too details to db"""
+            self.add_text_to_vs(self.toolbox_vs,text, metadata)
+            return
     
     def read_knowledge_base(self, query: str, k: int = 3) -> str:
         """Search knowledge base for relevant content."""

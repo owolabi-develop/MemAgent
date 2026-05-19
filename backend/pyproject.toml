@@ -7,5 +7,6 @@ requires-python = ">=3.14"
 dependencies = [
     "arxiv>=3.0.0",
     "datasets>=4.8.5",
+    "pydantic>=2.13.4",
     "python-dotenv>=1.2.2",
 ]

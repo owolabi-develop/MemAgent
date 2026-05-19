@@ -1,6 +1,11 @@
 from db.connection import connect_to_db,create_vector_index
 from memory.memory_store import StoreManager
 from memory.memory_manager import MemoryManager
+import inspect
+from tools.tools import search_tavily
+from tools.toolbox import ToolBox
+from pprint import pprint
+from datetime import datetime
 
 
 # Table names for each memory type
@@ -201,4 +206,29 @@ sample_data = [
     }
   }
 ]
+
+
+
+  
+  
+toolbox = ToolBox(manager)
+# meta = toolbox._get_tool_metadata(search_tavily)
+# pprint(meta,indent=8)
+
+@toolbox.register_tool(augment=True)
+def get_current_time(detailed: bool = False) -> str:
+    """
+    Returns the current time.
+    
+    Args:
+        detailed: If True, returns detailed format with microseconds
+    
+    Returns:
+        str: Current time as formatted string
+    """
+    if detailed:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    else:
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+#print(inspect.signature(search_tavily))
 
