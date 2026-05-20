@@ -108,7 +108,7 @@ class MemoryManager:
         embedding = google_embedding(query,model_output_dimensionality=1536)
         with self.conn.cursor() as cur:
             cur.execute(f"""
-                        SELECT content FROM {table_name}
+                        SELECT content, metadata FROM {table_name}
                         ORDER BY embedding <=> %s::vector
                         LIMIT %s
                         """,(embedding,k))
@@ -143,6 +143,50 @@ class MemoryManager:
             """ write too details to db"""
             self.add_text_to_vs(self.toolbox_vs,text, metadata)
             return
+        
+    def read_toolbox(self, query: str, k: int = 3) -> list[dict]:
+        """Find relevant tools and return google gemini-compatible schemas."""
+        results = self.similarity_search_vs(self.toolbox_vs,query, k=k)
+        tools = []
+        seen_tool_names: set[str] = set()
+        for _ , meta in results:
+            tool_name = meta.get("name", "tool")
+            if tool_name in seen_tool_names:
+                continue
+            seen_tool_names.add(tool_name)
+            # Extract parameters from metadata and convert to OpenAI format
+            stored_params = meta.get("parameters", {})
+            properties = {}
+            required = []
+            
+            for param_name, param_info in stored_params.items():
+                # Convert stored param info to google gemini format schema format
+                param_type = param_info.get("type", "string")
+                # Map Python types to JSON schema types
+                type_mapping = {
+                    "<class 'str'>": "string",
+                    "<class 'int'>": "integer", 
+                    "<class 'float'>": "number",
+                    "<class 'bool'>": "boolean",
+                    "str": "string",
+                    "int": "integer",
+                    "float": "number",
+                    "bool": "boolean"
+                }
+                json_type = type_mapping.get(param_type, "string")
+                properties[param_name] = {"type": json_type}
+                
+                # If no default, it's required
+                if "default" not in param_info:
+                    required.append(param_name)
+            
+            tools.append({
+                    "name": tool_name,
+                    "description": meta.get("description", ""),
+                    "parameters": {"type": "object", "properties": properties, "required": required}
+             
+            })
+        return tools
     
     def read_knowledge_base(self, query: str, k: int = 3) -> str:
         """Search knowledge base for relevant content."""
