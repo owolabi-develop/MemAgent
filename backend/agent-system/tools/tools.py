@@ -1,31 +1,16 @@
 from datetime import datetime
 from tavily import TavilyClient
 import os
-from memory.memory_manager import MemoryManager
-from db.connection import connect_to_db
+from config.config import manager as memory_manager
+from utils.utils import summarise_context_window,summarize_conversation
+from tools.toolbox import ToolBox
 
-CONVERSATIONAL_TABLE   = "CONVERSATIONAL_MEMORY" # Episodic memory
-KNOWLEDGE_BASE_TABLE   = "SEMANTIC_MEMORY" # Semantic memory
-WORKFLOW_TABLE = "WORKFLOW_MEMORY" # Procedural memory
-TOOLBOX_TABLE    = "TOOLBOX_MEMORY" # Procedural memory
-ENTITY_TABLE = "ENTITY_MEMORY" # Semantic memory
-SUMMARY_TABLE = "SUMMARY_MEMORY" # Semantic memory
-TOOL_LOG_TABLE = "TOOL_LOG_MEMORY" # Tool execution logs
-
-conn = connect_to_db()
-memory_manager = MemoryManager(conn,
-                        CONVERSATIONAL_TABLE,
-                        KNOWLEDGE_BASE_TABLE,
-                        WORKFLOW_TABLE,
-                        TOOLBOX_TABLE,
-                        ENTITY_TABLE,
-                        SUMMARY_TABLE,
-                        TOOL_LOG_TABLE
-                        )
+tool= ToolBox(memory_manager)
 
 
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
+@tool.register_tool(augment=True)
 def search_tavily(query: str, max_results: int = 5):
     """
     Use this function to search the web and store the results in the knowledge base.
@@ -53,6 +38,7 @@ def search_tavily(query: str, max_results: int = 5):
 
     return results
 
+@tool.register_tool(augment=True)
 def get_current_time(detailed: bool = False) -> str:
     """
     Returns the current time.
@@ -68,7 +54,7 @@ def get_current_time(detailed: bool = False) -> str:
     else:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-
+@tool.register_tool(augment=True)
 def read_toolbox(query: str, k: int = 3) -> list[str]:
     """
     Search the toolbox for functions that can help solve a problem or complete a task.
@@ -96,3 +82,48 @@ def read_toolbox(query: str, k: int = 3) -> list[str]:
         - "summarize long text and save to memory"
     """
     return memory_manager.read_toolbox(query, k=k)
+
+
+@tool.register_tool(augment=True)
+def expand_summary(summary_id: str) -> str:
+    
+    """
+    Expand a summary reference to retrieve the original conversations.
+
+    Use when you need more details from a [Summary ID: xxx] reference.
+    Returns all original messages that were summarized, in chronological order with timestamps.
+    """
+    # Get the summary text for context
+    summary_text = memory_manager.read_summary_memory(summary_id)
+
+    # Get the original conversations that were summarized
+    original_conversations = memory_manager.read_conversations_by_summary_id(summary_id)
+
+    return f"""
+            ## Summary Context
+                {summary_text}
+
+                {original_conversations}
+            """
+            
+@tool.register_tool(augment=True)  
+def summarize_and_store(text: str, thread_id: str = None) -> str:
+    """
+    Summarize long text and store in memory.
+
+    If thread_id is provided, summarize unsummarized conversation units from that thread
+    and mark exactly those units with the generated summary_id.
+    """
+    if thread_id:
+        result = summarize_conversation(thread_id)
+        if result.get("status") == "nothing_to_summarize":
+            return f"No unsummarized messages found for thread {thread_id}."
+        return f"Stored as [Summary ID: {result['id']}] {result['description']}"
+
+    result = summarise_context_window(text, memory_manager)
+    if result.get("status") == "nothing_to_summarize":
+        return "No content to summarize."
+    return f"Stored as [Summary ID: {result['id']}] {result['description']}"
+            
+
+
