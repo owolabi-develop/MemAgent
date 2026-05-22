@@ -5,8 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "arxiv>=3.0.0",
-    "datasets>=4.8.5",
+    "google-genai>=2.6.0",
+    "psycopg2>=2.9.12",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.2",
+    "tavily-python>=0.7.24",
 ]

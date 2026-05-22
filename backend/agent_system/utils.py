@@ -3,7 +3,7 @@ MODEL_TOKEN_LIMITS = {
     "gemini-3.5-flash": 256000,
 }
 
-from config.config import manager as memory_manager,client
+from config import manager as memory_manager,client
 
 # Context window calculator - returns percentage used
 def calculate_context_usage(context: str, model: str = "gemini-3.5-flash") -> dict:

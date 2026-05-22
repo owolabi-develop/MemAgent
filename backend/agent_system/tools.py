@@ -1,11 +1,11 @@
 from datetime import datetime
 from tavily import TavilyClient
 import os
-from config.config import manager as memory_manager
-from utils.utils import summarise_context_window,summarize_conversation
-from tools.toolbox import ToolBox
+from config import manager
+from toolbox import ToolBox
+from utils import summarise_context_window, summarize_conversation
 
-tool= ToolBox(memory_manager)
+tool= ToolBox(manager)
 
 
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
@@ -34,7 +34,7 @@ def search_tavily(query: str, max_results: int = 5):
         }
         
         # Write to knowledge base
-        memory_manager.write_knowledge_base(text, metadata)
+        manager.write_knowledge_base(text, metadata)
 
     return results
 
@@ -81,7 +81,7 @@ def read_toolbox(query: str, k: int = 3) -> list[str]:
         - "get the current date and time"
         - "summarize long text and save to memory"
     """
-    return memory_manager.read_toolbox(query, k=k)
+    return manager.read_toolbox(query, k=k)
 
 
 @tool.register_tool(augment=True)
@@ -94,10 +94,10 @@ def expand_summary(summary_id: str) -> str:
     Returns all original messages that were summarized, in chronological order with timestamps.
     """
     # Get the summary text for context
-    summary_text = memory_manager.read_summary_memory(summary_id)
+    summary_text = manager.read_summary_memory(summary_id)
 
     # Get the original conversations that were summarized
-    original_conversations = memory_manager.read_conversations_by_summary_id(summary_id)
+    original_conversations = manager.read_conversations_by_summary_id(summary_id)
 
     return f"""
             ## Summary Context
@@ -120,7 +120,7 @@ def summarize_and_store(text: str, thread_id: str = None) -> str:
             return f"No unsummarized messages found for thread {thread_id}."
         return f"Stored as [Summary ID: {result['id']}] {result['description']}"
 
-    result = summarise_context_window(text, memory_manager)
+    result = summarise_context_window(text, manager)
     if result.get("status") == "nothing_to_summarize":
         return "No content to summarize."
     return f"Stored as [Summary ID: {result['id']}] {result['description']}"

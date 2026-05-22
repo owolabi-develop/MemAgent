@@ -1,5 +1,5 @@
 from db.connection import connect_to_db
-from memory.memory_manager import MemoryManager
+from memory_manager import MemoryManager
 import os
 from google import genai
 # Table names for each memory type

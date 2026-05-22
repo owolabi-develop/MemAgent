@@ -1,6 +1,7 @@
 import json
-from embedding.embedding import google_embedding
-from google import genai,types
+from embedding import google_embedding
+from google import genai
+from google.genai import types
 import os
 from pydantic import BaseModel, Field
 from typing import List, Optional,Literal
@@ -13,6 +14,8 @@ class Entity(BaseModel):
 
 class EntitysModel(BaseModel):
     entities:List[Entity]
+    
+    
 class MemoryManager:
     """
     A simplified memory manager for AI agents using Oracle AI Database.
