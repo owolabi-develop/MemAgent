@@ -10,7 +10,6 @@ tool= ToolBox(manager)
 
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
-@tool.register_tool(augment=True)
 def search_tavily(query: str, max_results: int = 5):
     """
     Use this function to search the web and store the results in the knowledge base.
@@ -38,7 +37,7 @@ def search_tavily(query: str, max_results: int = 5):
 
     return results
 
-@tool.register_tool(augment=True)
+
 def get_current_time(detailed: bool = False) -> str:
     """
     Returns the current time.
@@ -54,7 +53,7 @@ def get_current_time(detailed: bool = False) -> str:
     else:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-@tool.register_tool(augment=True)
+
 def read_toolbox(query: str, k: int = 3) -> list[str]:
     """
     Search the toolbox for functions that can help solve a problem or complete a task.
@@ -84,7 +83,7 @@ def read_toolbox(query: str, k: int = 3) -> list[str]:
     return manager.read_toolbox(query, k=k)
 
 
-@tool.register_tool(augment=True)
+
 def expand_summary(summary_id: str) -> str:
     
     """
@@ -106,7 +105,6 @@ def expand_summary(summary_id: str) -> str:
                 {original_conversations}
             """
             
-@tool.register_tool(augment=True)  
 def summarize_and_store(text: str, thread_id: str = None) -> str:
     """
     Summarize long text and store in memory.
@@ -127,3 +125,19 @@ def summarize_and_store(text: str, thread_id: str = None) -> str:
             
 
 
+def register_common_tools():
+    print("registering common tool and keep reference for lookup")
+    tool.register_tool(search_tavily)
+    tool.register_tool(get_current_time)
+    tool.register_tool(summarize_and_store)
+    tool.register_tool(summarize_conversation)
+    tool.register_tool(read_toolbox)
+    tool.register_tool(expand_summary)
+    
+
+TOOL_BY_NAME = {"search_tavily":search_tavily,
+                "get_current_time":get_current_time,
+                "summarize_and_store":summarize_and_store,
+                "summarize_conversation":summarize_conversation,
+                "read_toolbox":read_toolbox,
+                "expand_summary":expand_summary}

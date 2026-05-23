@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from embedding import google_embedding
 from google import genai
 from google.genai import types
@@ -139,11 +140,12 @@ class MemoryManager:
         with self.conn.cursor() as cur:
             cur.execute(f"""
                         SELECT content, metadata FROM {table_name}
+                        where metadata @> %s
                         ORDER BY embedding <=> %s::vector
-                        where metadata @> %s LIMIT %s
-                        """,(embedding,filters,k))
+                        LIMIT %s
+                        """,(json.dumps(filters),embedding,k))
             result = cur.fetchall()
-            return result
+            return result 
         
     def write_knowledge_base(self, text: str | list[str], metadata: dict | list[dict]):
         """
@@ -295,19 +297,12 @@ class MemoryManager:
                 INSERT INTO {self.tool_log_table}
                     (thread_id, tool_call_id, tool_name, tool_args, result, result_preview, status, error_message, metadata, log_timestamp)
                 VALUES
-                    (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    (%s,%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP)
                 RETURNING id
-            """, {
-                "thread_id": thread_id,
-                "tool_call_id": tool_call_id,
-                "tool_name": tool_name,
-                "tool_args": tool_args_str,
-                "result": result_str,
-                "result_preview": preview,
-                "status": status,
-                "error_message": error_message,
-                "metadata": metadata_str,
-            })
+            """, (thread_id, tool_call_id,tool_name,
+                tool_args_str, result_str, preview,
+                status, error_message, metadata_str,
+            ))
             log_id = cur.fetchone()[0]
 
         self.conn.commit()
@@ -326,7 +321,7 @@ class MemoryManager:
                 WHERE thread_id = %s
                 ORDER BY timestamp DESC
                 FETCH FIRST %s ROWS ONLY
-            """, {"thread_id": thread_id, "limit": limit})
+            """, (thread_id, limit))
             rows = cur.fetchall()
 
         logs = []
@@ -443,7 +438,7 @@ Entity-level context such as people, organizations, systems, tools, and other na
         results = self.similarity__with_filter_search_vs(self.summary_vs,
             summary_id, 
             k=5, 
-            filter=filters
+            filters=filters
         )
         if not results:
             if thread_id is not None:
@@ -457,7 +452,7 @@ Entity-level context such as people, organizations, systems, tools, and other na
         filters = None
         if thread_id is not None:
             filters = {"thread_id": str(thread_id)}
-        results = self.similarity__with_filter_search_vs(self.summary_vs, query or "summary",filter=filters, k=k,)
+        results = self.similarity__with_filter_search_vs(self.summary_vs, query or "summary",filters=filters, k=k,)
         if not results:
             scope_note = ( 
                 f"(No summaries available for thread {thread_id}.)"
@@ -508,7 +503,7 @@ Compressed snapshots of older conversation windows preserved to retain long-rang
                 FROM {self.conversation_table}
                 WHERE summary_id = %s
                 ORDER BY con_timestamp ASC
-            """, {"summary_id": summary_id})
+            """, (summary_id,))
             results = cur.fetchall()
         
         if not results:
@@ -525,5 +520,50 @@ Compressed snapshots of older conversation windows preserved to retain long-rang
             lines.append("")  # Empty line between messages
         
         return "\n".join(lines)
+    
+    
+    def write_workflow(self, query: str, steps: list, final_answer: str, success: bool = True):
+        """Store a completed workflow pattern for future reference."""
+        # Format steps as text
+        steps_text = "\n".join([f"Step {i+1}: {s}" for i, s in enumerate(steps)])
+        text = f"Query: {query}\nSteps:\n{steps_text}\nAnswer: {final_answer[:200]}"
+        
+        metadata = {
+            "query": query,
+            "success": success,
+            "num_steps": len(steps),
+            "timestamp": datetime.now().isoformat()
+        }
+        self.add_text_to_vs(self.workflow_vs,[text], metadata)
+    
+    def read_workflow(self, query: str, k: int = 3) -> str:
+        """Search for similar past workflows with at least 1 step."""
+        # Filter to only include workflows that have steps (num_steps > 0)
+        results = self.similarity__with_filter_search_vs(self.workflow_vs,
+            query, 
+            k=k, 
+            filters={"num_steps":0 }
+        )
+        if not results:
+            return """## Workflow Memory
+### What this memory is
+Past task trajectories that include query context, ordered steps taken, and prior outcomes.
+### How you should leverage it
+- Use these workflows as reusable execution patterns for planning and tool orchestration.
+- Adapt step sequences to the current task rather than copying blindly.
+- Reuse successful patterns first, then adjust when task scope or constraints differ.
+### Retrieved workflows
+(No relevant workflows found.)"""
+        content = "\n---\n".join([doc for doc in results])
+        return f"""## Workflow Memory
+### What this memory is
+Past task trajectories that include query context, ordered steps taken, and prior outcomes.
+### How you should leverage it
+- Use these workflows as reusable execution patterns for planning and tool orchestration.
+- Adapt step sequences to the current task rather than copying blindly.
+- Reuse successful patterns first, then adjust when task scope or constraints differ.
+### Retrieved workflows
+
+{content}"""
 
             
