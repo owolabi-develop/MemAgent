@@ -1,10 +1,10 @@
-from config import manager as memory_manager,client
-from toolbox import ToolBox
+from .config import manager as memory_manager,client
+from .toolbox import ToolBox
 from google.genai import types
-from utils import calculate_context_usage,offload_to_summary
+from .utils import calculate_context_usage,offload_to_summary
 import json as json_lib
-from prompt import AGENT_SYSTEM_PROMPT
-from tools import (TOOL_BY_NAME,search_tavily,
+from .prompt import AGENT_SYSTEM_PROMPT
+from .tools import (TOOL_BY_NAME,search_tavily,
         summarize_conversation, summarize_and_store,
         read_toolbox,get_current_time)
 
@@ -44,9 +44,8 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
     """Agent loop with context window monitoring and summarization."""
     thread_id = str(thread_id)
     steps = []
-    summaries = []  # Track created summaries
-    
-    # 1. Build context from memory
+   
+    # Build context from memory
     print("\n" + "="*50)
     print("BUILDING CONTEXT...")
     

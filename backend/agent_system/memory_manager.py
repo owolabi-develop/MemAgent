@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from embedding import google_embedding
+from .embedding import google_embedding
 from google import genai
 from google.genai import types
 import os
@@ -98,7 +98,7 @@ class MemoryManager:
 
                         {messages_formatted}"""
     
-    def load_conversational_memory_history(self):
+    def load_conversational_memory_history(self,):
         """ load all conversational memory history"""
         with self.conn.cursor() as cur:
             cur.execute(f"""

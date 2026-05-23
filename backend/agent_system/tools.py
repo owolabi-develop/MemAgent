@@ -1,9 +1,9 @@
 from datetime import datetime
 from tavily import TavilyClient
 import os
-from config import manager
-from toolbox import ToolBox
-from utils import summarise_context_window, summarize_conversation
+from .config import manager
+from .toolbox import ToolBox
+from .utils import summarise_context_window, summarize_conversation
 
 tool= ToolBox(manager)
 

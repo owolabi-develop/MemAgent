@@ -1,10 +1,10 @@
-from embedding import google_embedding
+from .embedding import google_embedding
 import inspect
 from pydantic import BaseModel, Field
 from typing import List,Callable,Optional,Union
 from google import genai
 import os
-from memory_manager import MemoryManager
+from .memory_manager import MemoryManager
 from google.genai import errors,types
 import uuid
 
