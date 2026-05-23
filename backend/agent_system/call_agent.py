@@ -58,7 +58,7 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
     memory_context += memory_manager.read_entity(query) + "\n\n"
     memory_context += memory_manager.read_summary_context(query, thread_id=thread_id) + "\n\n"  # Shows IDs + descriptions (thread-scoped when available)
      
-    # 2. Check context usage - summarize if >80%
+    # Check context usage - summarize if >80%
     usage = calculate_context_usage(memory_context)
     
     if usage['percent'] > 80:
@@ -73,10 +73,8 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
     # Now prepend the query (always preserved, never summarized)
     context = f"# Question\n{query}\n\n{memory_context}"
 
-    print("====CONTEXT WINDOW=====\n")
-    print(context)
     
-    # 3. Get tools
+    # Get tools
     dynamic_tools = memory_manager.read_toolbox(query, k=5)
     print("Tools:")
     
@@ -87,7 +85,7 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
     except Exception:
         pass
     
-    # 5. Agent loop
+    # Agent loop
     messages = [context]
     final_answer = ""
     
@@ -138,9 +136,7 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
                 result_for_llm = result[:3000] + f"\n\n[Truncated for context. Full output saved in TOOL_LOG_MEMORY as log_id: {log_id}]"
             else:
                 result_for_llm = result
-
             result_display = result_for_llm[:200] + "..." if len(result_for_llm) > 200 else result_for_llm
-            print(f"   → {result_display}")
             function_response_part = types.Part.from_function_response(
                                             name=tool_name,
                                             response={"result": result_for_llm},

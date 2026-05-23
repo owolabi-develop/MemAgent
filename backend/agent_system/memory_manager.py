@@ -5,7 +5,10 @@ from google import genai
 from google.genai import types
 import os
 from pydantic import BaseModel, Field
+import uuid
 from typing import List, Optional,Literal
+from pprint import pprint
+    
 
 class Entity(BaseModel):
     name: str = Field(description="The name of the entity extracted.")
@@ -94,6 +97,20 @@ class MemoryManager:
                         ### Retrieved messages
 
                         {messages_formatted}"""
+    
+    def load_conversational_memory_history(self):
+        """ load all conversational memory history"""
+        with self.conn.cursor() as cur:
+            cur.execute(f"""
+                        SELECT id, role, content, created_at FROM {self.conversation_table}
+                        ORDER BY created_at ASC
+                        """)
+            
+            results = cur.fetchall()
+            con_history = [{"id":idx,"role":role,"content":content,"created_at":created_at.strftime('%H:%M:%S')} 
+                       for idx, role, content,created_at in results]
+        return con_history
+        
     
 
     

@@ -252,3 +252,4 @@ def offload_to_summary(context: str, memory_manager,thread_id: str = None) -> tu
         ).strip()
 
     return compact_context, [result]
+
