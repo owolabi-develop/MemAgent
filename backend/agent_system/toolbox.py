@@ -43,6 +43,16 @@ class ToolBox:
         embedding = google_embedding(text,model_output_dimensionality=1532)
         return embedding
     
+     def _check_tool_exist_in_db(self,tool_name:str):
+            with self.memory_manager.conn.cursor() as cur:
+                cur.execute(f"""
+                            SELECT count(*) FROM {self.memory_manager.toolbox_vs}
+                            where metadata ->> 'name' = %s
+                            """,(tool_name,))
+             
+                return cur.fetchone()[0] > 0
+        
+    
     
      def _augment_docstring(
         self, docstring: str, source_code: str = ""
@@ -52,6 +62,7 @@ class ToolBox:
         by analyzing both the original description and the
         function's source code.
         """
+        
         if not docstring.strip() and not source_code.strip():
             return "No description provided."
 
@@ -157,6 +168,13 @@ class ToolBox:
         """
 
         def decorator(f: Callable) -> str:
+            
+            tool_name = f.__name__
+            ## check if tool name already in db
+            too_ins = self._check_tool_exist_in_db(tool_name)
+            if too_ins:
+                self._tools_by_name[tool_name] = f
+                return tool_name
             
             docstring = f.__doc__ or ""
             signature = str(inspect.signature(f))
