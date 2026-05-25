@@ -3,7 +3,7 @@ from google.genai import types
 import os
 
 
-def google_embedding(content:str,embedding_task_type:str = "SEMANTIC_SIMILARITY",
+async def google_embedding(content:str,embedding_task_type:str = "SEMANTIC_SIMILARITY",
                      model_output_dimensionality:int=768):
     client = genai.Client(api_key=os.getenv("GOOGLE_GEMINI_API_KEY"))     
     result = client.models.embed_content(

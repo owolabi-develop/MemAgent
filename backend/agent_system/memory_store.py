@@ -1,7 +1,7 @@
 class StoreManager:
     """Manages all stores (vector stores and SQL tables) with getter methods for easy access."""
     
-    def __init__(self, client, table_names):
+    async def __init__(self, client, table_names):
         """
         Initialize all stores.
         
@@ -14,25 +14,25 @@ class StoreManager:
         self.client = client
      
         # Initialize all vector stores
-        self._knowledge_base_vs = self.create_vector_store(
+        await self._knowledge_base_vs = self.create_vector_store(
             table_name=table_names['knowledge_base'],
         )
         
-        self._workflow_vs = self.create_vector_store(
+        await self._workflow_vs = self.create_vector_store(
             table_name=table_names['workflow'],
            
         )
         
-        self._toolbox_vs = self.create_vector_store(
+        await self._toolbox_vs = self.create_vector_store(
             table_name=table_names['toolbox'],
         )
         
-        self._entity_vs = self.create_vector_store(
+        await self._entity_vs = self.create_vector_store(
             table_name=table_names['entity'],
             
         )
         
-        self._summary_vs = self.create_vector_store(
+        await self._summary_vs = self.create_vector_store(
             table_name=table_names['summary'],
         )
         
@@ -42,7 +42,7 @@ class StoreManager:
         self._create_tool_log_table = self.create_tool_log_table()
         
         
-    def create_vector_store(self,table_name):
+    async def create_vector_store(self,table_name):
     
         with self.client.cursor() as cur:
            ## DROP TABLE IF EXISTS 
@@ -61,7 +61,7 @@ class StoreManager:
         self.client.commit()
             
         print(f" Table {table_name} created successfully with indexes")
-    def create_tool_log_table(self,table_name: str = "TOOL_LOG_MEMORY"):
+    async def create_tool_log_table(self,table_name: str = "TOOL_LOG_MEMORY"):
         """
         Create a table to store raw tool execution logs per thread.
         If the table already exists, returns the table name without recreating it.
@@ -105,7 +105,7 @@ class StoreManager:
         
         return table_name
 
-    def create_conversational_history_table(self, table_name: str = "CONVERSATIONAL_MEMORY"):
+    async def create_conversational_history_table(self, table_name: str = "CONVERSATIONAL_MEMORY"):
         """
         Create a table to store conversational history.
 

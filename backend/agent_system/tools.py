@@ -10,7 +10,7 @@ tool= ToolBox(manager)
 
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
-def search_tavily(query: str, max_results: int = 5):
+async def search_tavily(query: str, max_results: int = 5):
     """
     Use this function to search the web and store the results in the knowledge base.
     """
@@ -33,12 +33,12 @@ def search_tavily(query: str, max_results: int = 5):
         }
         
         # Write to knowledge base
-        manager.write_knowledge_base(text, metadata)
+        await manager.write_knowledge_base(text, metadata)
 
     return results
 
 
-def get_current_time(detailed: bool = False) -> str:
+async def get_current_time(detailed: bool = False) -> str:
     """
     Returns the current time.
     
@@ -54,7 +54,7 @@ def get_current_time(detailed: bool = False) -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
 
-def read_toolbox(query: str, k: int = 3) -> list[str]:
+async def read_toolbox(query: str, k: int = 3) -> list[str]:
     """
     Search the toolbox for functions that can help solve a problem or complete a task.
     
@@ -80,11 +80,11 @@ def read_toolbox(query: str, k: int = 3) -> list[str]:
         - "get the current date and time"
         - "summarize long text and save to memory"
     """
-    return manager.read_toolbox(query, k=k)
+    return await manager.read_toolbox(query, k=k)
 
 
 
-def expand_summary(summary_id: str) -> str:
+async def expand_summary(summary_id: str) -> str:
     
     """
     Expand a summary reference to retrieve the original conversations.
@@ -93,10 +93,10 @@ def expand_summary(summary_id: str) -> str:
     Returns all original messages that were summarized, in chronological order with timestamps.
     """
     # Get the summary text for context
-    summary_text = manager.read_summary_memory(summary_id)
+    summary_text = await manager.read_summary_memory(summary_id)
 
     # Get the original conversations that were summarized
-    original_conversations = manager.read_conversations_by_summary_id(summary_id)
+    original_conversations = await manager.read_conversations_by_summary_id(summary_id)
 
     return f"""
             ## Summary Context
@@ -105,7 +105,7 @@ def expand_summary(summary_id: str) -> str:
                 {original_conversations}
             """
             
-def summarize_and_store(text: str, thread_id: str = None) -> str:
+async def summarize_and_store(text: str, thread_id: str = None) -> str:
     """
     Summarize long text and store in memory.
 
@@ -113,26 +113,26 @@ def summarize_and_store(text: str, thread_id: str = None) -> str:
     and mark exactly those units with the generated summary_id.
     """
     if thread_id:
-        result = summarize_conversation(thread_id)
+        result = await summarize_conversation(thread_id)
         if result.get("status") == "nothing_to_summarize":
             return f"No unsummarized messages found for thread {thread_id}."
         return f"Stored as [Summary ID: {result['id']}] {result['description']}"
 
-    result = summarise_context_window(text, manager)
+    result = await summarise_context_window(text, manager)
     if result.get("status") == "nothing_to_summarize":
         return "No content to summarize."
     return f"Stored as [Summary ID: {result['id']}] {result['description']}"
             
 
 
-def register_common_tools():
+async def register_common_tools():
     print("registering common tool and keep reference for lookup")
-    tool.register_tool(search_tavily)
-    tool.register_tool(get_current_time)
-    tool.register_tool(summarize_and_store)
-    tool.register_tool(summarize_conversation)
-    tool.register_tool(read_toolbox)
-    tool.register_tool(expand_summary)
+    await tool.register_tool(search_tavily)
+    await tool.register_tool(get_current_time)
+    await tool.register_tool(summarize_and_store)
+    await tool.register_tool(summarize_conversation)
+    await tool.register_tool(read_toolbox)
+    await tool.register_tool(expand_summary)
     
 
 TOOL_BY_NAME = {"search_tavily":search_tavily,

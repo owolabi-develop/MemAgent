@@ -25,8 +25,8 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-def on_startup():
-    register_common_tools()
+async def on_startup():
+    await register_common_tools()
     
     print("starting")
 
@@ -34,14 +34,14 @@ def on_startup():
 
 
 @app.get("/load-conversation")
-def load_conversation():
-    conversations = manager.load_conversational_memory_history()
+async def load_conversation():
+    conversations = await manager.load_conversational_memory_history()
     return {"conversation_history":conversations}
 
 @app.post("/chat")
-def chatAgent(user_query: Annotated[str, Form()]):
+async def chatAgent(user_query: Annotated[str, Form()]):
     thread_id = 5000
-    res = call_agent(user_query,thread_id)
+    res = await call_agent(user_query,thread_id)
     return {"response":res}
 
 

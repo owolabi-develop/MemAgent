@@ -6,7 +6,7 @@ MODEL_TOKEN_LIMITS = {
 from .config import manager as memory_manager,client
 
 # Context window calculator - returns percentage used
-def calculate_context_usage(context: str, model: str = "gemini-3.5-flash") -> dict:
+async def calculate_context_usage(context: str, model: str = "gemini-3.5-flash") -> dict:
     """Calculate context window usage as percentage."""
     estimated_tokens = len(context) // 4  # ~4 chars per token
     max_tokens = MODEL_TOKEN_LIMITS.get(model, 128000)
@@ -16,7 +16,7 @@ def calculate_context_usage(context: str, model: str = "gemini-3.5-flash") -> di
 
 
 
-def summarise_context_window(content: str, memory_manager,model: str = "gemini-3.5-flash") -> dict:
+async def summarise_context_window(content: str, memory_manager,model: str = "gemini-3.5-flash") -> dict:
     """
     Summarise content using an LLM and store in summary memory.
     """
@@ -24,7 +24,7 @@ def summarise_context_window(content: str, memory_manager,model: str = "gemini-3
     if not cleaned:
         return {"status": "nothing_to_summarize"}
 
-    def _message_text(resp) -> str:
+    async def _message_text(resp) -> str:
         msg = resp.text.strip()
        
         return msg
@@ -51,7 +51,7 @@ Conversation:
         model=model,
         contents=summary_prompt,
     )
-    summary = _message_text(response)
+    summary = await _message_text(response)
 
     # Retry once with a simpler prompt if output is empty.
     if not summary:
@@ -67,7 +67,7 @@ Conversation:
             model=model,
             messages=retry_prompt,
         )
-        summary = _message_text(retry)
+        summary = await _message_text(retry)
 
     if not summary:
         excerpt = cleaned[:500].replace("\n", " ").strip()
@@ -92,7 +92,7 @@ Summary:
         model=model,
         messages=desc_prompt,
     )
-    description = _message_text(desc_response) or "Conversation summary"
+    description = await _message_text(desc_response) or "Conversation summary"
 
     summary_id = str(uuid.uuid4())[:8]
     memory_manager.write_summary(summary_id, cleaned, summary, description)
@@ -103,7 +103,7 @@ Summary:
 
 
 
-def summarize_conversation(thread_id: str) -> dict:
+async def summarize_conversation(thread_id: str) -> dict:
     """
     Summarize all unsummarized messages in a thread and mark those exact units.
 
@@ -140,7 +140,7 @@ def summarize_conversation(thread_id: str) -> dict:
     transcript = "\n".join(transcript_lines)
 
     # Summarize the exact transcript
-    result = summarise_context_window(transcript, memory_manager)
+    result = await summarise_context_window(transcript, memory_manager)
     if result.get("status") == "nothing_to_summarize":
         return result
 
@@ -160,7 +160,7 @@ def summarize_conversation(thread_id: str) -> dict:
     return result
 
 
-def monitor_context_window(context: str, model: str = "gpt-5-mini") -> dict:
+async def monitor_context_window(context: str, model: str = "gpt-5-mini") -> dict:
     """
     Monitor the current context window and return capacity utilization.
 
@@ -175,7 +175,7 @@ def monitor_context_window(context: str, model: str = "gpt-5-mini") -> dict:
         - percent: Percentage of capacity used
         - status: 'ok', 'warning', or 'critical' based on usage
     """
-    result = calculate_context_usage(context, model)
+    result = await calculate_context_usage(context, model)
 
     # Add status indicator
     if result['percent'] < 50:
@@ -188,7 +188,7 @@ def monitor_context_window(context: str, model: str = "gpt-5-mini") -> dict:
     return result
 
 
-def offload_to_summary(context: str, memory_manager,thread_id: str = None) -> tuple:
+async def offload_to_summary(context: str, memory_manager,thread_id: str = None) -> tuple:
     """
     Simple context compaction:
     - If thread_id is provided, summarize unsummarized conversation units for that thread.
@@ -198,9 +198,9 @@ def offload_to_summary(context: str, memory_manager,thread_id: str = None) -> tu
     raw_context = (context or "").strip()
 
     if thread_id:
-        result = summarize_conversation(thread_id)
+        result = await summarize_conversation(thread_id)
     else:
-        result = summarise_context_window(raw_context, memory_manager)
+        result = await summarise_context_window(raw_context, memory_manager)
 
     if result.get("status") == "nothing_to_summarize":
         return raw_context, []

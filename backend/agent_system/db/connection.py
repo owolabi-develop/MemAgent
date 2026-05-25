@@ -1,9 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
-
 import os
 import psycopg2
-
 
 def connect_to_db():
     try:

@@ -57,7 +57,7 @@ class MemoryManager:
         self.model = "gemini-3.5-flash"
         
         
-    def write_conversational_memory(self, content: str, role: str, thread_id: str) -> str:
+    async def write_conversational_memory(self, content: str, role: str, thread_id: str) -> str:
         
         with self.conn.cursor() as cur:
             
@@ -73,7 +73,7 @@ class MemoryManager:
         self.conn.commit()
         return record_id
     
-    def read_conversational_memory(self,thread_id: str, limit: int = 10) -> str:
+    async def read_conversational_memory(self,thread_id: str, limit: int = 10) -> str:
         
         with self.conn.cursor() as cur:
             
@@ -98,7 +98,7 @@ class MemoryManager:
 
                         {messages_formatted}"""
     
-    def load_conversational_memory_history(self,):
+    async def load_conversational_memory_history(self,):
         """ load all conversational memory history"""
         with self.conn.cursor() as cur:
             cur.execute(f"""
@@ -116,7 +116,7 @@ class MemoryManager:
     
     
 
-    def mark_as_summarized(self, thread_id: str, summary_id: str):
+    async def mark_as_summarized(self, thread_id: str, summary_id: str):
         """Mark all unsummarized messages in a thread as summarized."""
         thread_id = str(thread_id)
         with self.conn.cursor() as cur:
@@ -128,8 +128,8 @@ class MemoryManager:
         self.conn.commit()
         print(f" Marked messages as summarized (summary_id: {summary_id})")
         
-    def add_text_to_vs(self, table_name: str, content: str ,metadata:dict):
-        embedding = google_embedding(content,model_output_dimensionality=1536)
+    async def add_text_to_vs(self, table_name: str, content: str ,metadata:dict):
+        embedding = await google_embedding(content,model_output_dimensionality=1536)
         with self.conn.cursor() as cur:
             cur.execute(f"""
                         INSERT INTO {table_name} (content, metadata, embedding)
@@ -139,9 +139,9 @@ class MemoryManager:
         self.conn.commit()
         print(f"upserting document to table: {table_name}")
         
-    def similarity_search_vs(self,table_name: str, query: str, k: int =3):
+    async def similarity_search_vs(self,table_name: str, query: str, k: int =3):
         ## similarity search for all vs method
-        embedding = google_embedding(query,model_output_dimensionality=1536)
+        embedding = await google_embedding(query,model_output_dimensionality=1536)
         with self.conn.cursor() as cur:
             cur.execute(f"""
                         SELECT content, metadata FROM {table_name}
@@ -151,8 +151,8 @@ class MemoryManager:
             result = cur.fetchall()
             return result
         
-    def similarity__with_filter_search_vs(self,table_name: str,query:str, filters: dict, k: int =3):
-        embedding = google_embedding(query,model_output_dimensionality=1536)
+    async def similarity__with_filter_search_vs(self,table_name: str,query:str, filters: dict, k: int =3):
+        embedding = await google_embedding(query,model_output_dimensionality=1536)
         
         with self.conn.cursor() as cur:
             cur.execute(f"""
@@ -164,7 +164,7 @@ class MemoryManager:
             result = cur.fetchall()
             return result 
         
-    def write_knowledge_base(self, text: str | list[str], metadata: dict | list[dict]):
+    async def write_knowledge_base(self, text: str | list[str], metadata: dict | list[dict]):
         """
         Store knowledge-base content with metadata.
 
@@ -183,17 +183,17 @@ class MemoryManager:
                 raise ValueError(
                     f"Knowledge-base batch length mismatch: {len(texts)} texts vs {len(metadatas)} metadata rows"
                 )
-            self.add_text_to_vs(self.knowledge_base_vs,texts, metadatas)
+            await self.add_text_to_vs(self.knowledge_base_vs,texts, metadatas)
             return
 
-        self.add_text_to_vs(self.knowledge_base_vs,[str(text)], [metadata if isinstance(metadata, dict) else {}])
+        await self.add_text_to_vs(self.knowledge_base_vs,[str(text)], [metadata if isinstance(metadata, dict) else {}])
         
-    def write_toolbox(self,text:str, metadata: dict):
+    async def write_toolbox(self,text:str, metadata: dict):
             """ write too details to db"""
-            self.add_text_to_vs(self.toolbox_vs,text, metadata)
+            await self.add_text_to_vs(self.toolbox_vs,text, metadata)
             return
         
-    def write_summary(
+    async def write_summary(
         self,
         summary_id: str,
         full_content: str,
@@ -210,15 +210,15 @@ class MemoryManager:
         }
         if thread_id is not None:
             metadata["thread_id"] = str(thread_id)
-        self.add_text_to_vs(self.summary_vs,
+        await self.add_text_to_vs(self.summary_vs,
             [f"{summary_id}: {description}"],
             metadata 
         )
         return summary_id
         
-    def read_toolbox(self, query: str, k: int = 3) -> list[dict]:
+    async def read_toolbox(self, query: str, k: int = 3) -> list[dict]:
         """Find relevant tools and return google gemini-compatible schemas."""
-        results = self.similarity_search_vs(self.toolbox_vs,query, k=k)
+        results = await self.similarity_search_vs(self.toolbox_vs,query, k=k)
         tools = []
         seen_tool_names: set[str] = set()
         for _ , meta in results:
@@ -260,9 +260,9 @@ class MemoryManager:
             })
         return tools
     
-    def read_knowledge_base(self, query: str, k: int = 3) -> str:
+    async def read_knowledge_base(self, query: str, k: int = 3) -> str:
         """Search knowledge base for relevant content."""
-        results = self.similarity_search_vs(self.knowledge_base_vs,query, k=k)
+        results = await self.similarity_search_vs(self.knowledge_base_vs,query, k=k)
        
         content = "\n".join([doc[0] for doc in results])
         if not content:
@@ -281,7 +281,7 @@ class MemoryManager:
     
     ## read  and write tool logs
     
-    def write_tool_log(
+    async def write_tool_log(
         self,
         thread_id: str,
         tool_name: str,
@@ -325,7 +325,7 @@ class MemoryManager:
         self.conn.commit()
         return log_id
 
-    def read_tool_logs(self, thread_id: str, limit: int = 20) -> list[dict]:
+    async def read_tool_logs(self, thread_id: str, limit: int = 20) -> list[dict]:
         """Read recent tool logs for a thread, newest first."""
         if not self.tool_log_table:
             return []
@@ -356,7 +356,7 @@ class MemoryManager:
             })
         return logs
     
-    def extract_entities(self, text: str, llm_client) -> list[dict]:
+    async def extract_entities(self, text: str, llm_client) -> list[dict]:
         """Use LLM to extract entities (people, places, systems) from text."""
         if not text or len(text.strip()) < 5:
             return []
@@ -377,27 +377,27 @@ class MemoryManager:
         except:
             return []
     
-    def write_entity(self, name: str, entity_type: str, description: str, llm_client=None, text: str = None):
+    async def write_entity(self, name: str, entity_type: str, description: str, llm_client=None, text: str = None):
         """Store an entity OR extract and store entities from text."""
         if text and llm_client:
             # Extract and store entities from text
-            entities = self.extract_entities(text, llm_client)
+            entities = await self.extract_entities(text, llm_client)
             for e in entities:
-                self.add_text_to_vs(self.entity_vs,
+                await self.add_text_to_vs(self.entity_vs,
                     [f"{e['name']} ({e['type']}): {e['description']}"],
                     [{"name": e['name'], "type": e['type'], "description": e['description']}]
                 )
             return entities
         else:
             # Store single entity directly
-            self.entity_vs.add_texts(
+            await self.entity_vs.add_texts(
                 [f"{name} ({entity_type}): {description}"],
                 [{"name": name, "type": entity_type, "description": description}]
             )
     
-    def read_entity(self, query: str, k: int = 5) -> str:
+    async def read_entity(self, query: str, k: int = 5) -> str:
         """Search for relevant entities."""
-        results = self.similarity_search_vs(self.entity_vs,query,k)
+        results = await self.similarity_search_vs(self.entity_vs,query,k)
         if not results:
             return """## Entity Memory
 ### What this memory is
@@ -423,7 +423,7 @@ Entity-level context such as people, organizations, systems, tools, and other na
 
 {entities_formatted}"""
     
-    def write_summary(
+    async def write_summary(
         self,
         summary_id: str,
         full_content: str,
@@ -440,19 +440,19 @@ Entity-level context such as people, organizations, systems, tools, and other na
         }
         if thread_id is not None:
             metadata["thread_id"] = str(thread_id)
-        self.add_text_to_vs(self.summary_vs,
+        await self.add_text_to_vs(self.summary_vs,
             [f"{summary_id}: {description}"],
             [metadata]
         )
         return summary_id
     
-    def read_summary_memory(self, summary_id: str, thread_id: str | None = None) -> str:
+    async def read_summary_memory(self, summary_id: str, thread_id: str | None = None) -> str:
         """Retrieve a specific summary by ID (just-in-time retrieval)."""
         filters = {"id": summary_id}
         if thread_id is not None:
             filters["thread_id"] = str(thread_id)
 
-        results = self.similarity__with_filter_search_vs(self.summary_vs,
+        results = await self.similarity__with_filter_search_vs(self.summary_vs,
             summary_id, 
             k=5, 
             filters=filters
@@ -464,12 +464,12 @@ Entity-level context such as people, organizations, systems, tools, and other na
         doc = results[1]
         return doc.metadata.get('summary', 'No summary content.')
     
-    def read_summary_context(self, query: str = "", k: int = 10, thread_id: str | None = None) -> str:
+    async def read_summary_context(self, query: str = "", k: int = 10, thread_id: str | None = None) -> str:
         """Get available summaries for context window (IDs + descriptions only)."""
         filters = None
         if thread_id is not None:
             filters = {"thread_id": str(thread_id)}
-        results = self.similarity__with_filter_search_vs(self.summary_vs, query or "summary",filters=filters, k=k,)
+        results = await self.similarity__with_filter_search_vs(self.summary_vs, query or "summary",filters=filters, k=k,)
         if not results:
             scope_note = ( 
                 f"(No summaries available for thread {thread_id}.)"
@@ -503,7 +503,7 @@ Compressed snapshots of older conversation windows preserved to retain long-rang
             lines.append(f"  • [ID: {sid}] {desc}")
         return "\n".join(lines)
     
-    def read_conversations_by_summary_id(self, summary_id: str) -> str:
+    async def read_conversations_by_summary_id(self, summary_id: str) -> str:
         """
         Retrieve all original conversations that were summarized with a given summary_id.
         Returns conversations in order of occurrence with timestamps.
@@ -539,7 +539,7 @@ Compressed snapshots of older conversation windows preserved to retain long-rang
         return "\n".join(lines)
     
     
-    def write_workflow(self, query: str, steps: list, final_answer: str, success: bool = True):
+    async def write_workflow(self, query: str, steps: list, final_answer: str, success: bool = True):
         """Store a completed workflow pattern for future reference."""
         # Format steps as text
         steps_text = "\n".join([f"Step {i+1}: {s}" for i, s in enumerate(steps)])
@@ -551,12 +551,12 @@ Compressed snapshots of older conversation windows preserved to retain long-rang
             "num_steps": len(steps),
             "timestamp": datetime.now().isoformat()
         }
-        self.add_text_to_vs(self.workflow_vs,[text], metadata)
+        await self.add_text_to_vs(self.workflow_vs,[text], metadata)
     
-    def read_workflow(self, query: str, k: int = 3) -> str:
+    async def read_workflow(self, query: str, k: int = 3) -> str:
         """Search for similar past workflows with at least 1 step."""
         # Filter to only include workflows that have steps (num_steps > 0)
-        results = self.similarity__with_filter_search_vs(self.workflow_vs,
+        results = await self.similarity__with_filter_search_vs(self.workflow_vs,
             query, 
             k=k, 
             filters={"num_steps":0 }

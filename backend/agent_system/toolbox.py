@@ -39,11 +39,11 @@ class ToolBox:
         self._tools_by_name: dict[str, Callable] = {}
         self.client = genai.Client(api_key=os.getenv("GOOGLE_GEMINI_API_KEY")) 
           
-     def _get_embedding(self,text: str) -> list[float]:
-        embedding = google_embedding(text,model_output_dimensionality=1532)
+     async def _get_embedding(self,text: str) -> list[float]:
+        embedding = await google_embedding(text,model_output_dimensionality=1532)
         return embedding
     
-     def _check_tool_exist_in_db(self,tool_name:str):
+     async def _check_tool_exist_in_db(self,tool_name:str):
             with self.memory_manager.conn.cursor() as cur:
                 cur.execute(f"""
                             SELECT count(*) FROM {self.memory_manager.toolbox_vs}
@@ -54,7 +54,7 @@ class ToolBox:
         
     
     
-     def _augment_docstring(
+     async def _augment_docstring(
         self, docstring: str, source_code: str = ""
     ) -> str:
         """
@@ -95,7 +95,7 @@ class ToolBox:
 
         return response.text.strip()
     
-     def _generate_queries(self, docstring: str, num_queries: int = 5) -> list[str]:
+     async def _generate_queries(self, docstring: str, num_queries: int = 5) -> list[str]:
          """
             Generate synthetic example queries that would lead to using this tool.
          """
@@ -126,7 +126,7 @@ class ToolBox:
          
     
     
-     def _get_tool_metadata(self, func: Callable) -> ToolMetadata:
+     async def _get_tool_metadata(self, func: Callable) -> ToolMetadata:
         """
         Extract metadata from a function for storage and retrieval.
         """
@@ -156,7 +156,7 @@ class ToolBox:
             return_type=return_type
         )
     
-     def register_tool(
+     async def register_tool(
         self, func: Optional[Callable] = None, augment: bool = False
     ) -> Union[str, Callable]:
         """
@@ -167,7 +167,7 @@ class ToolBox:
         written to the vector store.
         """
 
-        def decorator(f: Callable) -> str:
+        async def decorator(f: Callable) -> str:
             
             tool_name = f.__name__
             ## check if tool name already in db
@@ -187,16 +187,16 @@ class ToolBox:
                     source_code = inspect.getsource(f)
                 except (OSError, TypeError):
                     source_code = ""
-                augmented_docstring = self._augment_docstring(
+                augmented_docstring =await self._augment_docstring(
                     docstring, source_code
                 )
-                queries = self._generate_queries(augmented_docstring)
+                queries = await self._generate_queries(augmented_docstring)
 
                 # Create rich embedding text combining all information
                 embedding_text = f"{f.__name__} {augmented_docstring} {signature} {' '.join(queries)}"
-                embedding = self._get_embedding(embedding_text)
+                embedding = await self._get_embedding(embedding_text)
 
-                tool_data = self._get_tool_metadata(f)
+                tool_data = await self._get_tool_metadata(f)
                 tool_data.description = augmented_docstring  # Use augmented description
 
                 tool_dict = {
@@ -208,8 +208,8 @@ class ToolBox:
                 }
             else:
                 # Basic registration without augmentation
-                embedding = self._get_embedding(f"{f.__name__} {docstring} {signature}")
-                tool_data = self._get_tool_metadata(f)
+                embedding = await self._get_embedding(f"{f.__name__} {docstring} {signature}")
+                tool_data = await self._get_tool_metadata(f)
 
                 tool_dict = {
                     "_id": object_id_str,  # Use string, not UUID object
@@ -220,7 +220,7 @@ class ToolBox:
 
             # Store the tool in the toolbox memory for retrieval
             # The embedding enables semantic search to find relevant tools
-            self.memory_manager.write_toolbox(
+            await self.memory_manager.write_toolbox(
                 f"{f.__name__} {docstring} {signature}",
                 tool_dict
             )
@@ -231,6 +231,6 @@ class ToolBox:
             return object_id_str
 
         if func is None:
-            return decorator
-        return decorator(func)
+            return await decorator
+        return await decorator(func)
         

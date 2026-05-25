@@ -4,6 +4,7 @@ from google.genai import types
 from .utils import calculate_context_usage,offload_to_summary
 import json as json_lib
 from .prompt import AGENT_SYSTEM_PROMPT
+import asyncio
 from .tools import (TOOL_BY_NAME,search_tavily,
         summarize_conversation, summarize_and_store,
         read_toolbox,get_current_time)
@@ -12,7 +13,7 @@ from .tools import (TOOL_BY_NAME,search_tavily,
 # register all tool so the agent can call them
 
 
-def execute_tool(tool_name: str, tool_args: dict, current_thread_id: str | None = None) -> str:
+async def execute_tool(tool_name: str, tool_args: dict, current_thread_id: str | None = None) -> str:
     """Execute a tool by looking it up in the toolbox."""
      
     if tool_name not in TOOL_BY_NAME:
@@ -24,9 +25,9 @@ def execute_tool(tool_name: str, tool_args: dict, current_thread_id: str | None 
     if tool_name == "summarize_and_store" and "thread_id" not in args and current_thread_id is not None:
         args["thread_id"] = str(current_thread_id)
 
-    return str(TOOL_BY_NAME[tool_name](**args) or "Done")
+    return await TOOL_BY_NAME[tool_name](**args) or "Done"
 
-def call_gemini_chat(messages: list, tools: list = None, model: str = "gemini-3.5-flash"):
+async def call_gemini_chat(messages: list, tools: list = None, model: str = "gemini-3.5-flash"):
     """Call Gemini Chat generation API with tools."""
     if tools:
         func_tools = types.Tool(function_declarations=tools)
@@ -40,7 +41,7 @@ def call_gemini_chat(messages: list, tools: list = None, model: str = "gemini-3.
         )
     return res
 
-def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> str:
+async def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> str:
     """Agent loop with context window monitoring and summarization."""
     thread_id = str(thread_id)
     steps = []
@@ -49,50 +50,48 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
     print("\n" + "="*50)
     print("BUILDING CONTEXT...")
     
-    # Build memory context (excluding query for now)
-    memory_context = ""
-    memory_context += memory_manager.read_conversational_memory(thread_id) + "\n\n"
-    memory_context += memory_manager.read_knowledge_base(query) + "\n\n"
-    memory_context += memory_manager.read_workflow(query) + "\n\n"
-    memory_context += memory_manager.read_entity(query) + "\n\n"
-    memory_context += memory_manager.read_summary_context(query, thread_id=thread_id) + "\n\n"  # Shows IDs + descriptions (thread-scoped when available)
-     
+    # Build memory context concurrently (excluding query for now)
+    async with asyncio.TaskGroup() as load_context:
+        t1 = load_context.create_task(memory_manager.read_conversational_memory(thread_id))
+        t2 = load_context.create_task(memory_manager.read_knowledge_base(query))
+        t3 = load_context.create_task(memory_manager.read_workflow(query)) 
+        t4 = load_context.create_task(memory_manager.read_entity(query))
+        t5 = load_context.create_task(memory_manager.read_summary_context(query, thread_id=thread_id))
+        
+    memory_context = f"{t1.result()}\n\n{t2.result()}\n\n{t3.result()}\n\n{t4.result()}\n\n{t5.result()}\n\n"
     # Check context usage - summarize if >80%
-    usage = calculate_context_usage(memory_context)
+    usage = await calculate_context_usage(memory_context)
     
     if usage['percent'] > 80:
-        memory_context, summaries = offload_to_summary(
+        memory_context, summaries = await offload_to_summary(
             memory_context,
             memory_manager,
             thread_id=thread_id,
         )
        
-        usage = calculate_context_usage(memory_context)
+        usage = await calculate_context_usage(memory_context)
        
     # Now prepend the query (always preserved, never summarized)
     context = f"# Question\n{query}\n\n{memory_context}"
 
     
     # Get tools
-    dynamic_tools = memory_manager.read_toolbox(query, k=5)
+    dynamic_tools = await memory_manager.read_toolbox(query, k=5)
     print("Tools:")
     
-    # 4. Store user message & extract entities
-    memory_manager.write_conversational_memory(query, "user", thread_id)
-    try:
-        memory_manager.write_entity("", "", "", llm_client=client, text=query)
-    except Exception:
-        pass
-    
+    # . Store user message & extract entities concurrently
+    async with asyncio.TaskGroup() as store_msg_enti:
+        store_msg_enti.create_task(memory_manager.write_conversational_memory(query, "user", thread_id))
+        store_msg_enti.create_task( memory_manager.write_entity("", "", "", llm_client=client, text=query))
+       
     # Agent loop
     messages = [context]
     final_answer = ""
     
-    print("AGENT LOOP")
+    ## "AGENT LOOP"
     for iteration in range(max_iterations):
-        print(f"\n--- Iteration {iteration + 1} ---")
         
-        response = call_gemini_chat(messages, tools=dynamic_tools)
+        response = await call_gemini_chat(messages, tools=dynamic_tools)
         msg = response
         
         if msg.candidates[0].content.parts[0].function_call:
@@ -108,7 +107,7 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
             print(f"{tool_name}")
             
             try:
-                result = execute_tool(tool_name, tool_args, current_thread_id=thread_id)
+                result = await execute_tool(tool_name, tool_args, current_thread_id=thread_id)
                 status = "success"
                 error_message = None
                 steps.append(f"{tool_name}({args_display}) → success")
@@ -119,7 +118,7 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
                 steps.append(f"{tool_name}({args_display}) → failed")
 
             # # Persist full tool output to TOOL_LOG_MEMORY
-            log_id = memory_manager.write_tool_log(
+            log_id = await memory_manager.write_tool_log(
                 thread_id=thread_id,
                 tool_call_id=function_call.id,
                 tool_name=tool_name,
@@ -148,14 +147,13 @@ def call_agent(query: str, thread_id: str = "1", max_iterations: int = 10) -> st
         # Max iterations reached without final answer
         final_answer = "I was unable to complete your request."
     
-    # 6. Save workflow & entities
+    #. Save workflow & entities
     if steps:
-        memory_manager.write_workflow(query, steps, final_answer)
-    try:
-        memory_manager.write_entity("", "", "", llm_client=client, text=final_answer)
-    except Exception:
-        pass
-    memory_manager.write_conversational_memory(final_answer, "assistant", thread_id)
+        async with asyncio.TaskGroup() as save_wrk_flow_enti:
+            save_wrk_flow_enti.create_task(memory_manager.write_workflow(query, steps, final_answer))
+            save_wrk_flow_enti.create_task( memory_manager.write_entity("", "", "", llm_client=client, text=final_answer))
+       
+    await memory_manager.write_conversational_memory(final_answer, "assistant", thread_id)
     return final_answer
 
 
