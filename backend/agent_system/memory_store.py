@@ -1,7 +1,7 @@
 class StoreManager:
     """Manages all stores (vector stores and SQL tables) with getter methods for easy access."""
     
-    async def __init__(self, client, table_names):
+    def __init__(self, client):
         """
         Initialize all stores.
         
@@ -12,34 +12,35 @@ class StoreManager:
 
         """
         self.client = client
-     
+    async def create_db(self,table_names:dict):
+        
         # Initialize all vector stores
-        await self._knowledge_base_vs = self.create_vector_store(
+        self._knowledge_base_vs = await self.create_vector_store(
             table_name=table_names['knowledge_base'],
         )
         
-        await self._workflow_vs = self.create_vector_store(
+        self._workflow_vs = await self.create_vector_store(
             table_name=table_names['workflow'],
            
         )
         
-        await self._toolbox_vs = self.create_vector_store(
+        self._toolbox_vs = await self.create_vector_store(
             table_name=table_names['toolbox'],
         )
         
-        await self._entity_vs = self.create_vector_store(
+        self._entity_vs = await self.create_vector_store(
             table_name=table_names['entity'],
             
         )
         
-        await self._summary_vs = self.create_vector_store(
+        self._summary_vs = await self.create_vector_store(
             table_name=table_names['summary'],
         )
         
         ## initialize sql tables
-        self._create_conversational_history_table = self.create_conversational_history_table()
+        self._create_conversational_history_table = await self.create_conversational_history_table()
         
-        self._create_tool_log_table = self.create_tool_log_table()
+        self._create_tool_log_table = await self.create_tool_log_table()
         
         
     async def create_vector_store(self,table_name):

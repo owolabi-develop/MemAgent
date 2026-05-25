@@ -1,9 +1,10 @@
 from datetime import datetime
 from tavily import TavilyClient
 import os
-from .config import manager
+from .config import manager,conn
 from .toolbox import ToolBox
 from .utils import summarise_context_window, summarize_conversation
+from .memory_store import StoreManager
 
 tool= ToolBox(manager)
 
@@ -126,6 +127,14 @@ async def summarize_and_store(text: str, thread_id: str = None) -> str:
 
 
 async def register_common_tools():
+    tables = {"knowledge_base":"SEMANTIC_MEMORY",
+              "workflow":"WORKFLOW_MEMORY",
+              "toolbox":"TOOLBOX_MEMORY",
+              "entity":"ENTITY_MEMORY",
+              "summary":"SUMMARY_MEMORY"
+              }
+    await StoreManager(conn).create_db(tables)
+    
     print("registering common tool and keep reference for lookup")
     await tool.register_tool(search_tavily)
     await tool.register_tool(get_current_time)
