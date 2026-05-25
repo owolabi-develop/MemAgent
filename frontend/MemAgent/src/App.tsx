@@ -1,11 +1,10 @@
-import { useState } from 'react'
-
+import { ChatAgent } from "./component/chat"
 
 function App() {
   
   return (
     <>
-      <section> hello</section>
+      <ChatAgent/>
     </>
   )
 }
