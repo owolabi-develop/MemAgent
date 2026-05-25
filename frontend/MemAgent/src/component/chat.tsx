@@ -127,7 +127,7 @@ const ChatAgentInner = () => {
             <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border-2 border-white" />
           </div>
           <div>
-            <p className="text-[13px] font-medium text-gray-900 leading-none">Assistant</p>
+            <p className="text-[13px] font-medium text-gray-900 leading-none">Research Assistant</p>
             <p className="text-[11px] text-gray-400 mt-0.5">
               {isLoading ? "Loading…" : "Online now"}
             </p>
@@ -215,7 +215,7 @@ const ChatAgentInner = () => {
       </div>
 
       {/* Input — pill style */}
-      <div className="px-4 pb-4 pt-2 border-t border-gray-100">
+      <div className="p-2 border-t border-gray-200 bg-white">
         <div className={`flex items-center gap-2 rounded-full px-4 py-2 bg-gray-100 border transition-all ${
           input ? "border-gray-400 bg-white" : "border-transparent"
         }`}>
@@ -226,7 +226,7 @@ const ChatAgentInner = () => {
             onKeyDown={handleKeyDown}
             placeholder="Type a message…"
             rows={1}
-            className="flex-1 text-[13px] text-gray-900 placeholder-gray-400 bg-transparent resize-none outline-none leading-[1.45] max-h-[80px] py-1"
+            className="flex-1 text-[13px] text-gray-900 placeholder-gray-400 bg-transparent resize-none outline-none leading-[1.45] max-h-[80px] py-1 "
           />
           <button
             onClick={handleSend}

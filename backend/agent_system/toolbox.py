@@ -171,7 +171,7 @@ class ToolBox:
             
             tool_name = f.__name__
             ## check if tool name already in db
-            too_ins = self._check_tool_exist_in_db(tool_name)
+            too_ins = await self._check_tool_exist_in_db(tool_name)
             if too_ins:
                 self._tools_by_name[tool_name] = f
                 return tool_name
